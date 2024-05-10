@@ -59,6 +59,14 @@ async function run() {
     })
 
     // updating a food
+    app.get('/foods/:id', async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) }
+      const result = await foodsCollection.findOne(query);
+      res.send(result);
+    })
+
+
     app.put('/foods/:id' , async (req, res) => {
       const id = req.params.id
       const filter = { _id: new ObjectId(id) }
@@ -66,9 +74,17 @@ async function run() {
       const updateFood = req.body;
       const food = {
         $set: {
-          
+          foodName: updateFood.foodName,
+          quantity: updateFood.quantity,
+          date: updateFood.date,
+          location: updateFood.location,
+          photo: updateFood.photo,
+          notes: updateFood.notes,
         }
       }
+
+      const result = await foodsCollection.updateOne(filter, food, options);
+      res.send(result)
 
     })
 
