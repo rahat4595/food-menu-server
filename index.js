@@ -40,6 +40,11 @@ async function run() {
       res.send(result);
     })
 
+    // getting data for my list
+    app.get('/myFood/email', async (req, res) => {
+      console.log(req.params.email)
+    })
+
     // creating data to server
     app.post('/foods', async(req, res) => {
       const newFood = req.body
