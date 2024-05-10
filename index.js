@@ -1,6 +1,6 @@
 const express = require('express');
 const cors = require('cors');
-const { MongoClient, ServerApiVersion } = require('mongodb');
+const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 require('dotenv').config()
 const app = express();
 const port = process.env.PORT || 5000;
@@ -41,11 +41,13 @@ async function run() {
     })
 
     // getting data for my list
-    app.get('/myFood/email', async (req, res) => {
+    app.get('/myList/:email', async (req, res) => {
       console.log(req.params.email);
       const result = await foodsCollection.find({
-        email:req.params.email
+        email:
+          req.params.email
       }).toArray();
+      res.send(result);
     })
 
     // creating data to server
@@ -55,6 +57,21 @@ async function run() {
       const result = await foodsCollection.insertOne(newFood);
       res.send(result);
     })
+
+    // updating a food
+    app.put('/foods/:id' , async (req, res) => {
+      const id = req.params.id
+      const filter = { _id: new ObjectId(id) }
+      const options = { upsert: true };
+      const updateFood = req.body;
+      const food = {
+        $set: {
+          
+        }
+      }
+
+    })
+
 
 
     // Send a ping to confirm a successful connection
