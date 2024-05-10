@@ -42,7 +42,10 @@ async function run() {
 
     // getting data for my list
     app.get('/myFood/email', async (req, res) => {
-      console.log(req.params.email)
+      console.log(req.params.email);
+      const result = await foodsCollection.find({
+        email:req.params.email
+      }).toArray();
     })
 
     // creating data to server
