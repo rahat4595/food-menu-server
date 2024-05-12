@@ -31,11 +31,12 @@ async function run() {
     await client.connect();
 
     const foodsCollection = client.db('foodDB').collection('foods');
+    const requestedCollection = client.db('foodDB').collection('requestedFood');
 
 
     // getting data from server
     app.get('/foods', async (req, res) => {
-      const cursor = foodsCollection.find();
+      const cursor = foodsCollection.find({status:'Available'});
       const result = await cursor.toArray();
       res.send(result);
     })
@@ -49,6 +50,8 @@ async function run() {
       }).toArray();
       res.send(result);
     })
+
+    
 
     // creating data to server
     app.post('/foods', async(req, res) => {
@@ -96,7 +99,54 @@ async function run() {
       res.send(result);
     });
 
+    // ******************************************************************
 
+    // add requested food
+    app.put("/reqFood/:id", async (req, res) => {
+     const id = req.params.id;
+     const data = req.body;
+     const filter = { _id: new ObjectId(id) };
+      const options = { upsert: true };
+      const selectedFood = await foodsCollection.findOne(filter );
+
+      const {foodName, photo, quantity, date, location,  notes, email, donatorName, donatorPhoto} = selectedFood;
+      const food = { 
+        $set: {
+          foodName, photo, quantity, date, location,  notes, email, donatorName, donatorPhoto,status:'Requested'
+        }
+      }
+
+      const updatedStatus = await foodsCollection.updateOne(
+        filter,
+        food,
+        options
+      );
+
+      if (updatedStatus.modifiedCount > 0) {
+        const result = await requestedCollection.insertOne(data);
+        res.send(result);
+      } else {
+        res.status(404).send({ message: "Request failed" });
+      }
+    });
+
+    // show requested food Read operation
+    app.get("/reqFood", async (req, res) => {
+      const cursor = requestedCollection.find();
+      const result = await cursor.toArray();
+      res.send(result);
+    });
+
+    // get reqFood by email
+    app.get("/reqFood/:email", async (req, res) => {
+      const email = req.params.email;
+      const query = { userEmail: email };
+      const result = await requestedCollection.find(query).toArray();
+      res.send(result);
+    });
+
+
+    // *********************************************************************
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
