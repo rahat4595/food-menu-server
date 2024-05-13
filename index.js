@@ -1,18 +1,23 @@
 const express = require('express');
 const cors = require('cors');
+const jwt = require('jsonwebtoken');
+const cookieParser = require('cookie-parser')
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 require('dotenv').config()
 const app = express();
 const port = process.env.PORT || 5000;
 
 // middleware
-app.use(cors());
+app.use(cors({
+  origin: ['http://localhost:5173', 'https://food-menu-ffbe8.web.app'],
+  credentials: true
+}));
 app.use(express.json());
+app.use(cookieParser());
 
 
 
-console.log(process.env.DB_PASS)
-
+// console.log(process.env.DB_PASS)
 
 const uri = `mongodb+srv://${process.env.DB_USER}:${process.env.DB_PASS}@cluster0.ev60phs.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
@@ -25,15 +30,84 @@ const client = new MongoClient(uri, {
   }
 });
 
+// middlewares
+const logger = async (req, res, next) => {
+  console.log("called", req.host, req.originalUrl);
+  next();
+};
+
+const verifyToken = async (req, res, next) => {
+  const token = req.cookies?.token;
+  if (!token) {
+    return res.status(401).send({ message: "unauthorized access" });
+  }
+  jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
+    if (err) {
+      return res.status(401).send({ message: "Invalid authorization" });
+    }
+    req.user = decoded;
+    next();
+  });
+};
+
+const cookieOption = {
+  httpOnly: true,
+  sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
+  secure: process.env.NODE_ENV === "production" ? true : false,
+};
+
+
+
+
+
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
-    await client.connect();
+    // await client.connect();
 
     const foodsCollection = client.db('foodDB').collection('foods');
     const requestedCollection = client.db('foodDB').collection('requestedFood');
 
+    // auth related api
+    app.post("/jwt", logger, async (req, res) => {
+      const user = req.body;
+      console.log(user);
+      const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {
+        expiresIn: "5h",
+      });
+      res.cookie("token", token, cookieOption).send({ success: true });
+    });
 
+    app.post("/logout", async (req, res) => {
+      const user = req.body;
+      console.log("Logging Out", user);
+      res
+        .clearCookie("token", { ...cookieOption, maxAge: 0 })
+        .send({ success: true });
+    });
+
+
+
+
+
+    
+    // app.post('/jwt', async(req, res) =>{
+    //   const user = req.body;
+    //   console.log(user);
+    //   const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {expiresIn: '1h'})
+    //   res
+    //   .cookie('token' , token, {
+    //     httpOnly: true,
+    //     secure: false,
+       
+    //   })
+    //   .send({success: true})
+    // })
+
+
+
+    // ***************************************************
+    // services related api
     // getting data from server
     app.get('/foods', async (req, res) => {
       const cursor = foodsCollection.find({status:'Available'});
@@ -42,8 +116,9 @@ async function run() {
     })
 
     // getting data for my list
-    app.get('/myList/:email', async (req, res) => {
+    app.get('/myList/:email', logger, verifyToken, async (req, res) => {
       console.log(req.params.email);
+      // console.log('tok tok token', req.cookies.token)  //here kam ase
       const result = await foodsCollection.find({
         email:
           req.params.email
@@ -138,7 +213,7 @@ async function run() {
     });
 
     // get reqFood by email
-    app.get("/reqFood/:email", async (req, res) => {
+    app.get("/reqFood/:email", logger, verifyToken,  async (req, res) => {
       const email = req.params.email;
       const query = { userEmail: email };
       const result = await requestedCollection.find(query).toArray();
@@ -149,8 +224,8 @@ async function run() {
     // *********************************************************************
 
     // Send a ping to confirm a successful connection
-    await client.db("admin").command({ ping: 1 });
-    console.log("Pinged your deployment. You successfully connected to MongoDB!");
+    // await client.db("admin").command({ ping: 1 });
+    // console.log("Pinged your deployment. You successfully connected to MongoDB!");
   } finally {
     // Ensures that the client will close when you finish/error
     // await client.close();
