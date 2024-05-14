@@ -137,7 +137,7 @@ async function run() {
     })
 
     // updating a food
-    app.get('/foods/:id', async (req, res) => {
+    app.get('/foods/:id', logger, verifyToken, async (req, res) => {
       const id = req.params.id;
       const query = { _id: new ObjectId(id) }
       const result = await foodsCollection.findOne(query);
